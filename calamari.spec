@@ -6,9 +6,7 @@
 %global FLAVOR    rhel7
 %global src_name  calamari
 
-#################################################################################
-# common
-#################################################################################
+
 Name:           calamari-server
 Version:        %{version}
 Release:        %{?revision}%{?dist}
@@ -21,7 +19,7 @@ Url:            http://www.inktank.com/enterprise/
 BuildRequires:  postgresql-libs
 BuildRequires:  python-coverage m2crypto salt python-zerorpc python-twisted-core redhat-lsb-core
 Requires:       httpd mod_wsgi cairo logrotate redhat-lsb-core pycairo python-setuptools
-Requires:       salt-master salt-minion graphite python-twisted-core python-django-rest-framework
+Requires:       salt-master salt-minion python-twisted-core python-django-rest-framework
 Requires:       python-six python-psycogreen python-zmq m2crypto python-zerorpc
 Requires:       python-mako python-psycopg2 python-manhole python-dateutil python-markdown
 Requires:       python-django python-django-tagging python-django-jsonfield python-django-filter
@@ -29,6 +27,8 @@ Requires:       python-django-nose python-nose python-mock python-argparse pytho
 Requires:       python-sphinx python-psycogreen python-psutil python-gevent python-greenlet
 Requires:       python-wsgiref python-sqlalchemy python-alembic Cython python-coverage
 Requires:       postgresql postgresql-libs postgresql-server
+Requires:       dejavu-sans-fonts dejavu-serif-fonts django-tagging
+Requires:       mod_wsgi pycairo pyparsing python-simplejson pytz
 Source0:        %{name}-%{version}.tar.gz
 BuildArch:      noarch
 
@@ -39,6 +39,7 @@ browser.
 
 %prep
 %setup -q -n %{name}-%{version}
+
 
 %build
 cd calamari-common
@@ -53,7 +54,10 @@ cd ../whisper
 %{__python} setup.py build
 cd ../carbon
 %{__python} setup.py build
+cd ../graphite
+%{__python} setup.py build
 cd ..
+
 
 %install
 cd calamari-common
@@ -70,12 +74,30 @@ cd ../carbon
 %{__python} setup.py install -O1 --root=$RPM_BUILD_ROOT \
     --install-lib=%{python_sitelib} \
     --install-scripts=%{_bindir}
+cd ../graphite
+%{__python} setup.py install -O1 --root=$RPM_BUILD_ROOT \
+    --install-lib=%{python_sitelib} \
+    --install-data=%{_datadir}/graphite \
+    --install-scripts=%{_bindir}
 cd ../
 
 # remove .py suffix
 for i in $RPM_BUILD_ROOT%{_bindir}/*.py; do
     mv ${i} ${i%%.py}
 done
+
+%{__install} -d ${RPM_BUILD_ROOT}%{_sysconfdir}/graphite
+%{__install} -Dp -m0644 graphite/webapp/graphite/local_settings.py.example \
+    %{RPM_BUILD_ROOT}%{_sysconfdir}/graphite/local_settings.py
+ln -s %{_sysconfdir}/graphite/local_settings.py \
+    %{RPM_BUILD_ROOT}%{python_sitelib}/graphite/local_settings.py
+%{__install} -Dp -m0644 graphite/conf/dashboard.conf.example  \
+    %{RPM_BUILD_ROOT}%{_sysconfdir}/graphite/dashboard.conf
+%{__install} -Dp -m0644 graphite/conf/graphite.wsgi.example \
+    %{RPM_BUILD_ROOT}%{_datadir}/graphite/graphite.wsgi
+
+# Rename build-index.sh.
+mv %{RPM_BUILD_ROOT}%{_bindir}/build-index.sh %{RPM_BUILD_ROOT}%{_bindir}/graphite-build-index
 
 %{__install} -D -m 0644 conf/calamari.wsgi \
     ${RPM_BUILD_ROOT}/opt/calamari/conf/calamari.wsgi
@@ -88,7 +110,7 @@ done
 %{__install} -D -m 0644 conf/salt.master.conf \
     ${RPM_BUILD_ROOT}/etc/salt/master.d/calamari.conf
 
-%{__install} -d ${RPM_BUILD_ROOT}/etc/graphite
+
 %{__install} -D -m 0644 conf/carbon/carbon.conf \
     ${RPM_BUILD_ROOT}/etc/graphite/carbon.conf
 %{__install} -D -m 0644 conf/carbon/storage-schemas.conf \
@@ -184,6 +206,7 @@ rm -rf $RPM_BUILD_ROOT
 %{python_sitelib}/whisper*.egg-info
 %{python_sitelib}/cthulhu
 %{python_sitelib}/carbon
+%{python_sitelib}/carbon*.egg-info
 %{python_sitelib}/twisted
 %{python_sitelib}/calamari_cthulhu*.egg-info
 %{python_sitelib}/calamari_web
@@ -245,8 +268,7 @@ if [ $1 == 0 ] ; then
 #       mv /etc/httpd/conf.d/welcome.conf.orig /etc/httpd/conf.d/welcome.conf
     %if 0%{?rhel} && 0%{?rhel} >= 7
     systemctl stop httpd
-    systemctl stop calamari-carbon
-    systemctl stop cthulhu-manager
+    systemctl stop supervisord
     systemctl stop salt-master
     %else
     service httpd stop || true
