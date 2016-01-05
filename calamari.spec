@@ -163,6 +163,8 @@ cp -rp alembic/* ${RPM_BUILD_ROOT}/opt/calamari/alembic
 sed -i '1iWSGISocketPrefix run/wsgi' ${RPM_BUILD_ROOT}/etc/httpd/conf.d/calamari.conf
 
 rm -rf ${RPM_BUILD_ROOT}/opt/graphite/examples
+rm -rf ${RPM_BUILD_ROOT}%{python_sitelib}/graphite/thirdparty
+
 
 %clean
 rm -rf $RPM_BUILD_ROOT
