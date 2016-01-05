@@ -238,7 +238,7 @@ calamari_httpd()
     chown -R apache.apache /var/lib/graphite
 
     # centos64
-    if [[ -f "/etc/httpd/conf.d/welcome.conf" ]] then;
+    if [[ -f "/etc/httpd/conf.d/welcome.conf" ]]; then
         mv /etc/httpd/conf.d/welcome.conf /etc/httpd/conf.d/welcome.conf.orig
     fi
     chown -R apache:apache /var/log/calamari
@@ -250,6 +250,7 @@ calamari_httpd()
     systemctl restart salt-master
     systemctl enable supervisord > /dev/null 2>&1
     systemctl restart supervisord.service > /dev/null 2>&1
+    sleep 5
     chown -R apache:apache /var/log/calamari
     %else
     service salt-master restart
