@@ -17,16 +17,16 @@ import calendar
 import pytz
 
 try:
-  import cPickle as pickle
-  USING_CPICKLE = True
+    import cPickle as pickle
+    USING_CPICKLE = True
 except:
-  import pickle
-  USING_CPICKLE = False
+    import pickle
+    USING_CPICKLE = False
 
 try:
-  from cStringIO import StringIO
+    from cStringIO import StringIO
 except ImportError:
-  from StringIO import StringIO
+    from StringIO import StringIO
 
 from os import environ
 from django.core.exceptions import ObjectDoesNotExist
@@ -54,7 +54,7 @@ def epoch(dt):
     Returns the epoch timestamp of a timezone-aware datetime object.
     """
     if dt.tzinfo is None:
-      dt = dt.replace(tzinfo=get_current_timezone())
+        dt = dt.replace(tzinfo=get_current_timezone())
     return calendar.timegm(dt.astimezone(pytz.utc).timetuple())
 
 def getProfile(request,allowDefault=True):

@@ -19,7 +19,7 @@ Url:            http://www.inktank.com/enterprise/
 BuildRequires:  postgresql-libs
 BuildRequires:  python-coverage m2crypto salt python-zerorpc python-twisted-core redhat-lsb-core
 Requires:       httpd mod_wsgi cairo logrotate redhat-lsb-core pycairo python-setuptools
-Requires:       salt-master salt-minion python-twisted-core python-django-rest-framework
+Requires:       salt-master salt-minion supervisor python-twisted-core python-django-rest-framework
 Requires:       python-six python-psycogreen python-zmq m2crypto python-zerorpc
 Requires:       python-mako python-psycopg2 python-manhole python-dateutil python-markdown
 Requires:       python-django python-django-tagging python-django-jsonfield python-django-filter

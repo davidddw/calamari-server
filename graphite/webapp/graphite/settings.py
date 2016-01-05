@@ -147,9 +147,9 @@ if not GRAPHITE_WEB_APP_SETTINGS_LOADED:
 ## Set config dependent on flags set in local_settings
 # Path configuration
 if not CONTENT_DIR:
-  CONTENT_DIR = join(WEBAPP_DIR, 'content')
+    CONTENT_DIR = join(WEBAPP_DIR, 'content')
 if not CSS_DIR:
-  CSS_DIR = join(CONTENT_DIR, 'css')
+    CSS_DIR = join(CONTENT_DIR, 'css')
 
 if not CONF_DIR:
   CONF_DIR = os.environ.get('GRAPHITE_CONF_DIR', join(GRAPHITE_ROOT, 'conf'))

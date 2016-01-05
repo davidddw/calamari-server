@@ -6,9 +6,9 @@ from glob import glob
 
 
 try:
-        from io import BytesIO
+    from io import BytesIO
 except ImportError:
-        from StringIO import StringIO as BytesIO
+    from StringIO import StringIO as BytesIO
 
 # adding [install] section
 with open('setup.cfg', 'r') as f:
@@ -81,8 +81,6 @@ try:
         'graphite.dashboard',
         'graphite.events',
         'graphite.version',
-        'graphite.thirdparty',
-        'graphite.thirdparty.pytz',
       ],
       package_data={'graphite' :
         ['templates/*', 'local_settings.py.example']},

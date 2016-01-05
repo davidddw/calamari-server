@@ -16,10 +16,7 @@ from datetime import datetime,timedelta
 from time import daylight
 from django.utils import timezone
 
-try: # See if there is a system installation of pytz first
-  import pytz
-except ImportError: # Otherwise we fall back to Graphite's bundled version
-  from graphite.thirdparty import pytz
+import pytz
 
 
 months = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec']
@@ -86,30 +83,30 @@ def parseTimeReference(ref):
     refDate = refDate.replace(year=y)
 
     try: # Fix for Bug #551771
-      refDate = refDate.replace(month=m)
-      refDate = refDate.replace(day=d)
+        refDate = refDate.replace(month=m)
+        refDate = refDate.replace(day=d)
     except:
-      refDate = refDate.replace(day=d)
-      refDate = refDate.replace(month=m)
+        refDate = refDate.replace(day=d)
+        refDate = refDate.replace(month=m)
 
   elif len(ref) == 8 and ref.isdigit(): #YYYYMMDD
-    refDate = refDate.replace(year= int(ref[:4]))
+      refDate = refDate.replace(year= int(ref[:4]))
 
     try: # Fix for Bug #551771
-      refDate = refDate.replace(month= int(ref[4:6]))
-      refDate = refDate.replace(day= int(ref[6:8]))
+        refDate = refDate.replace(month= int(ref[4:6]))
+        refDate = refDate.replace(day= int(ref[6:8]))
     except:
-      refDate = refDate.replace(day= int(ref[6:8]))
-      refDate = refDate.replace(month= int(ref[4:6]))
+        refDate = refDate.replace(day= int(ref[6:8]))
+        refDate = refDate.replace(month= int(ref[4:6]))
 
   elif ref[:3] in months: #MonthName DayOfMonth
     refDate = refDate.replace(month= months.index(ref[:3]) + 1)
     if ref[-2:].isdigit():
-      refDate = refDate.replace(day= int(ref[-2:]))
+        refDate = refDate.replace(day= int(ref[-2:]))
     elif ref[-1:].isdigit():
-      refDate = refDate.replace(day= int(ref[-1:]))
+        refDate = refDate.replace(day= int(ref[-1:]))
     else:
-      raise Exception, "Day of month required after month name"
+        raise Exception, "Day of month required after month name"
   elif ref[:3] in weekdays: #DayOfWeek (Monday, etc)
     todayDayName = refDate.strftime("%a").lower()[:3]
     today = weekdays.index( todayDayName )
@@ -118,50 +115,50 @@ def parseTimeReference(ref):
     if dayOffset < 0: dayOffset += 7
     refDate -= timedelta(days=dayOffset)
   elif ref:
-    raise Exception, "Unknown day reference"
+      raise Exception, "Unknown day reference"
 
   return refDate
 
 
 def parseTimeOffset(offset):
-  if not offset:
-    return timedelta()
+    if not offset:
+      return timedelta()
 
-  t = timedelta()
+    t = timedelta()
 
-  if offset[0].isdigit():
-    sign = 1
-  else:
-    sign = { '+' : 1, '-' : -1 }[offset[0]]
-    offset = offset[1:]
+    if offset[0].isdigit():
+        sign = 1
+    else:
+        sign = { '+' : 1, '-' : -1 }[offset[0]]
+        offset = offset[1:]
 
-  while offset:
-    i = 1
-    while offset[:i].isdigit() and i <= len(offset): i += 1
-    num = int(offset[:i-1])
-    offset = offset[i-1:]
-    i = 1
-    while offset[:i].isalpha() and i <= len(offset): i += 1
-    unit = offset[:i-1]
-    offset = offset[i-1:]
-    unitString = getUnitString(unit)
-    if unitString == 'months':
-      unitString = 'days'
-      num = num * 30
-    if unitString == 'years':
-      unitString = 'days'
-      num = num * 365
-    t += timedelta(**{ unitString : sign * num})
-
-  return t
+    while offset:
+        i = 1
+        while offset[:i].isdigit() and i <= len(offset): i += 1
+        num = int(offset[:i-1])
+        offset = offset[i-1:]
+        i = 1
+        while offset[:i].isalpha() and i <= len(offset): i += 1
+        unit = offset[:i-1]
+        offset = offset[i-1:]
+        unitString = getUnitString(unit)
+        if unitString == 'months':
+            unitString = 'days'
+            num = num * 30
+        if unitString == 'years':
+            unitString = 'days'
+            num = num * 365
+        t += timedelta(**{ unitString : sign * num})
+    
+    return t
 
 
 def getUnitString(s):
-  if s.startswith('s'): return 'seconds'
-  if s.startswith('min'): return 'minutes'
-  if s.startswith('h'): return 'hours'
-  if s.startswith('d'): return 'days'
-  if s.startswith('w'): return 'weeks'
-  if s.startswith('mon'): return 'months'
-  if s.startswith('y'): return 'years'
-  raise Exception, "Invalid offset unit '%s'" % s
+    if s.startswith('s'): return 'seconds'
+    if s.startswith('min'): return 'minutes'
+    if s.startswith('h'): return 'hours'
+    if s.startswith('d'): return 'days'
+    if s.startswith('w'): return 'weeks'
+    if s.startswith('mon'): return 'months'
+    if s.startswith('y'): return 'years'
+    raise Exception, "Invalid offset unit '%s'" % s

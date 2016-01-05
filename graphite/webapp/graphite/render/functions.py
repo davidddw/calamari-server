@@ -29,9 +29,9 @@ from graphite.events import models
 #XXX format_units() should go somewhere else
 from os import environ
 if environ.get('READTHEDOCS'):
-  format_units = lambda *args, **kwargs: (0,'')
+    format_units = lambda *args, **kwargs: (0,'')
 else:
-  from graphite.render.glyph import format_units
+    from graphite.render.glyph import format_units
 
 NAN = float('NaN')
 INF = float('inf')
