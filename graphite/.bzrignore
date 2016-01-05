@@ -1,8 +1,0 @@
-MANIFEST
-_trial_temp
-build
-dist
-graphite.db
-.bzrignore
-dropin.cache
-*.egg-info

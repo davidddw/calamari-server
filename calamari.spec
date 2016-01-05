@@ -29,6 +29,7 @@ Requires:       python-wsgiref python-sqlalchemy python-alembic Cython python-co
 Requires:       postgresql postgresql-libs postgresql-server
 Requires:       dejavu-sans-fonts dejavu-serif-fonts django-tagging
 Requires:       mod_wsgi pycairo pyparsing python-simplejson pytz
+Requires:       graphite python-carbon python-whisper
 Source0:        %{name}-%{version}.tar.gz
 BuildArch:      noarch
 
@@ -50,12 +51,6 @@ cd ../calamari-web
 %{__python} setup.py build
 cd ../rest-api
 %{__python} setup.py build
-cd ../whisper
-%{__python} setup.py build
-cd ../carbon
-%{__python} setup.py build
-cd ../graphite
-%{__python} setup.py build
 cd ..
 
 
@@ -68,40 +63,7 @@ cd ../calamari-web
 %{__python} setup.py install -O1 --root=$RPM_BUILD_ROOT
 cd ../rest-api
 %{__python} setup.py install -O1 --root=$RPM_BUILD_ROOT
-cd ../whisper
-%{__python} setup.py install -O1 --root=$RPM_BUILD_ROOT
-cd ../carbon
-%{__python} setup.py install -O1 --root=$RPM_BUILD_ROOT \
-    --install-lib=%{python_sitelib} \
-    --install-scripts=%{_bindir}
-cd ../graphite
-%{__python} setup.py install -O1 --root=$RPM_BUILD_ROOT \
-    --install-lib=%{python_sitelib} \
-    --install-data=%{_datadir}/graphite \
-    --install-scripts=%{_bindir}
 cd ../
-
-# remove .py suffix
-for i in $RPM_BUILD_ROOT%{_bindir}/*.py; do
-    mv ${i} ${i%%.py}
-done
-
-%{__install} -d ${RPM_BUILD_ROOT}%{_sysconfdir}/graphite
-%{__install} -Dp -m0644 graphite/webapp/graphite/local_settings.py.example \
-    ${RPM_BUILD_ROOT}%{_sysconfdir}/graphite/local_settings.py
-ln -sf %{_sysconfdir}/graphite/local_settings.py \
-    ${RPM_BUILD_ROOT}%{python_sitelib}/graphite/local_settings.py
-%{__install} -Dp -m0644 graphite/conf/dashboard.conf.example  \
-    ${RPM_BUILD_ROOT}%{_sysconfdir}/graphite/dashboard.conf
-%{__install} -Dp -m0644 graphite/conf/graphite.wsgi.example \
-    ${RPM_BUILD_ROOT}%{_datadir}/graphite/graphite.wsgi
-
-# Make manage.py available at an easier location.
-ln -s %{python_sitelib}/graphite/manage.py \
-    %{buildroot}%{_bindir}/graphite-manage
-
-# Rename build-index.sh.
-mv ${RPM_BUILD_ROOT}%{_bindir}/build-index.sh ${RPM_BUILD_ROOT}%{_bindir}/graphite-build-index
 
 %{__install} -D -m 0644 conf/calamari.wsgi \
     ${RPM_BUILD_ROOT}/opt/calamari/conf/calamari.wsgi
@@ -113,7 +75,6 @@ mv ${RPM_BUILD_ROOT}%{_bindir}/build-index.sh ${RPM_BUILD_ROOT}%{_bindir}/graphi
 %{__install} -d ${RPM_BUILD_ROOT}/etc/salt/master.d
 %{__install} -D -m 0644 conf/salt.master.conf \
     ${RPM_BUILD_ROOT}/etc/salt/master.d/calamari.conf
-
 
 %{__install} -D -m 0644 conf/carbon/carbon.conf \
     ${RPM_BUILD_ROOT}/etc/graphite/carbon.conf
@@ -162,36 +123,14 @@ cp -rp alembic/* ${RPM_BUILD_ROOT}/opt/calamari/alembic
     ${RPM_BUILD_ROOT}/etc/httpd/conf.d/calamari.conf
 sed -i '1iWSGISocketPrefix run/wsgi' ${RPM_BUILD_ROOT}/etc/httpd/conf.d/calamari.conf
 
-rm -rf ${RPM_BUILD_ROOT}/opt/graphite/examples
-rm -rf ${RPM_BUILD_ROOT}%{python_sitelib}/graphite/thirdparty
-
 
 %clean
 rm -rf $RPM_BUILD_ROOT
 
 %files -n calamari-server
-%{_bindir}/rrd2whisper
-%{_bindir}/whisper-create
-%{_bindir}/whisper-dump
-%{_bindir}/whisper-diff
-%{_bindir}/whisper-fetch
-%{_bindir}/whisper-fill
-%{_bindir}/whisper-info
-%{_bindir}/whisper-merge
-%{_bindir}/whisper-resize
-%{_bindir}/whisper-set-aggregation-method
-%{_bindir}/whisper-update
-%{_bindir}/carbon-aggregator
-%{_bindir}/carbon-cache
-%{_bindir}/carbon-client
-%{_bindir}/carbon-relay
-%{_bindir}/validate-storage-schemas
+/opt/calamari/
 %{_bindir}/calamari-ctl
 %{_bindir}/cthulhu-manager
-%{_bindir}/graphite-build-index
-%{_bindir}/graphite-manage
-
-/opt/calamari/
 %{_sysconfdir}/supervisord.d/calamari.ini
 %{_sysconfdir}/salt/master.d/calamari.conf
 %{_sysconfdir}/logrotate.d/calamari
@@ -209,21 +148,13 @@ rm -rf $RPM_BUILD_ROOT
 
 %{python_sitelib}/calamari_common
 %{python_sitelib}/calamari_common*.egg-info
-%{python_sitelib}/whisper.py*
-%{python_sitelib}/whisper*.egg-info
-%{python_sitelib}/cthulhu
-%{python_sitelib}/carbon
-%{python_sitelib}/carbon*.egg-info
-%{python_sitelib}/twisted
 %{python_sitelib}/calamari_cthulhu*.egg-info
 %{python_sitelib}/calamari_web
+%{python_sitelib}/cthulhu
 %{python_sitelib}/calamari_web*.egg-info
 %{python_sitelib}/calamari_rest
 %{python_sitelib}/calamari_rest_api*.egg-info
-%{python_sitelib}/graphite/
-%{python_sitelib}/graphite_web-*-py?.?.egg-info
 
-%{_datadir}/graphite
 
 %post -n calamari-server
 chown -R apache.apache /opt/calamari/webapp/calamari
@@ -231,10 +162,8 @@ if [[ -f "/etc/httpd/conf.d/welcome.conf" ]]; then
     mv /etc/httpd/conf.d/welcome.conf /etc/httpd/conf.d/welcome.conf.orig
 fi
 chown -R apache:apache /var/log/calamari
-# Prompt the user to proceed with the final script-driven
-# part of the installation process
-echo "Thank you for installing Calamari."
-echo "Please run 'sudo calamari-ctl initialize' to complete the installation."
+chown -R apache:apache /var/lib/graphite
+
 exit 0
 
 %preun -n calamari-server
