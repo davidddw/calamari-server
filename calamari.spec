@@ -226,49 +226,11 @@ rm -rf $RPM_BUILD_ROOT
 %{_datadir}/graphite
 
 %post -n calamari-server
-calamari_httpd()
-{
-    d=$(pwd)
-
-    # allow apache access to all
-    chown -R apache.apache /opt/calamari/webapp/calamari
-
-    # apache shouldn't need to write, but it does because
-    # graphite creates index on read
-    chown -R apache.apache /var/lib/graphite
-
-    # centos64
-    if [[ -f "/etc/httpd/conf.d/welcome.conf" ]]; then
-        mv /etc/httpd/conf.d/welcome.conf /etc/httpd/conf.d/welcome.conf.orig
-    fi
-    chown -R apache:apache /var/log/calamari
-    cd $d
-
-    # Load our salt config
-    %if 0%{?rhel} && 0%{?rhel} >= 7
-    systemctl enable salt-master > /dev/null 2>&1
-    systemctl restart salt-master
-    systemctl enable supervisord > /dev/null 2>&1
-    systemctl restart supervisord.service > /dev/null 2>&1
-    sleep 5
-    chown -R apache:apache /var/log/calamari
-    %else
-    service salt-master restart
-    # Load our supervisor config
-    service supervisord stop
-    sleep 3
-    service supervisord start
-    %endif   
-}
-
-calamari_httpd
-%if 0%{?rhel} && 0%{?rhel} >= 7
-systemctl restart httpd
-%else
-service httpd stop || true
-service httpd start
-%endif
-
+chown -R apache.apache /opt/calamari/webapp/calamari
+if [[ -f "/etc/httpd/conf.d/welcome.conf" ]]; then
+    mv /etc/httpd/conf.d/welcome.conf /etc/httpd/conf.d/welcome.conf.orig
+fi
+chown -R apache:apache /var/log/calamari
 # Prompt the user to proceed with the final script-driven
 # part of the installation process
 echo "Thank you for installing Calamari."
@@ -276,34 +238,19 @@ echo "Please run 'sudo calamari-ctl initialize' to complete the installation."
 exit 0
 
 %preun -n calamari-server
-if [ $1 == 0 ] ; then 
-#rm /etc/httpd/conf.d/calamari.conf
-#       rm /etc/httpd/conf.d/wsgi.conf
-#       mv /etc/httpd/conf.d/welcome.conf.orig /etc/httpd/conf.d/welcome.conf
-    %if 0%{?rhel} && 0%{?rhel} >= 7
-    systemctl stop httpd
-    systemctl stop supervisord
-    systemctl stop salt-master
-    %else
-    service httpd stop || true
-    service httpd start || true
-    service supervisord stop
-    sed -i '/^### START calamari-server/,/^### END calamari-server/d' /etc/supervisord.conf
-    service supervisord start
-    %endif
-fi
+systemctl stop httpd
+systemctl stop supervisord
+systemctl stop salt-master
 exit 0
 
 %postun -n calamari-server
 # Remove anything left behind in the calamari and graphite
 # virtual environment  directories, if this is a "last-instance" call
-if [ $1 == 0 ] ; then
-    rm -rf /opt/graphite
-    rm -rf /opt/calamari
-    rm -rf /var/log/graphite
-    rm -rf /var/log/calamari
-    rm -rf /var/lib/graphite/whisper
-fi
+rm -rf /opt/graphite
+rm -rf /opt/calamari
+rm -rf /var/log/graphite
+rm -rf /var/log/calamari
+rm -rf /var/lib/graphite/whisper
 exit 0
 
 %changelog
