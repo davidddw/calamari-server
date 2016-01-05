@@ -1,7 +1,7 @@
 %{!?python_sitelib: %global python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")}
 %{!?python_sitearch: %global python_sitearch %(%{__python} -c "from distutils.sysconfig import get_python_lib; print(get_python_lib(1))")}
 
-%global version   1.3.1.1
+%global version   1.4.0
 %global revision  1
 %global FLAVOR    rhel7
 %global src_name  calamari
@@ -21,8 +21,7 @@ Url:            http://www.inktank.com/enterprise/
 BuildRequires:  postgresql-libs
 BuildRequires:  python-coverage m2crypto salt python-zerorpc python-twisted-core redhat-lsb-core
 Requires:       httpd mod_wsgi cairo logrotate redhat-lsb-core pycairo python-setuptools
-Requires:       salt-master salt-minion supervisor graphite
-Requires:       python-twisted-core python-django-rest-framework python-carbon
+Requires:       salt-master salt-minion graphite python-twisted-core python-django-rest-framework
 Requires:       python-six python-psycogreen python-zmq m2crypto python-zerorpc
 Requires:       python-mako python-psycopg2 python-manhole python-dateutil python-markdown
 Requires:       python-django python-django-tagging python-django-jsonfield python-django-filter
@@ -30,7 +29,7 @@ Requires:       python-django-nose python-nose python-mock python-argparse pytho
 Requires:       python-sphinx python-psycogreen python-psutil python-gevent python-greenlet
 Requires:       python-wsgiref python-sqlalchemy python-alembic Cython python-coverage
 Requires:       postgresql postgresql-libs postgresql-server
-Source0:        %{src_name}-%{version}.tar.gz
+Source0:        %{name}-%{version}.tar.gz
 BuildArch:      noarch
 
 %description -n calamari-server
@@ -39,7 +38,7 @@ browser.
 
 
 %prep
-%setup -q -n %{src_name}-%{version}
+%setup -q -n %{name}-%{version}
 
 %build
 cd calamari-common
@@ -50,6 +49,11 @@ cd ../calamari-web
 %{__python} setup.py build
 cd ../rest-api
 %{__python} setup.py build
+cd ../whisper
+%{__python} setup.py build
+cd ../carbon
+%{__python} setup.py build
+cd ..
 
 %install
 cd calamari-common
@@ -60,18 +64,27 @@ cd ../calamari-web
 %{__python} setup.py install -O1 --root=$RPM_BUILD_ROOT
 cd ../rest-api
 %{__python} setup.py install -O1 --root=$RPM_BUILD_ROOT
+cd ../whisper
+%{__python} setup.py install -O1 --root=$RPM_BUILD_ROOT
+cd ../carbon
+%{__python} setup.py install -O1 --root=$RPM_BUILD_ROOT \
+    --install-data=%{_localstatedir}/lib/carbon \
+    --install-lib=%{python_sitelib} \
+    --install-scripts=%{_bindir}
 cd ../
+
+# remove .py suffix
+for i in $RPM_BUILD_ROOT%{_bindir}/*.py; do
+    mv ${i} ${i%%.py}
+done
+
 %{__install} -D -m 0644 conf/calamari.wsgi \
     ${RPM_BUILD_ROOT}/opt/calamari/conf/calamari.wsgi
 %{__install} -d ${RPM_BUILD_ROOT}/etc/supervisor/conf.d
 
 # install supervisord config
-#%{__install} -D -m 0644 conf/supervisord.production.conf \
-#    ${RPM_BUILD_ROOT}/etc/supervisor/conf.d/calamari.conf
-#sed -i 's#/opt/calamari/venv/bin/carbon-cache.py#/usr/bin/carbon-cache#g' \
-#        ${RPM_BUILD_ROOT}/etc/supervisor/conf.d/calamari.conf
-#sed -i 's#/opt/calamari/venv/bin/cthulhu-manager#/usr/bin/cthulhu-manager#g' \
-#        ${RPM_BUILD_ROOT}/etc/supervisor/conf.d/calamari.conf
+%{__install} -D -m 0644 conf/supervisord.production.conf \
+    ${RPM_BUILD_ROOT}/etc/supervisor/conf.d/calamari.conf
 
 %{__install} -d ${RPM_BUILD_ROOT}/etc/salt/master.d
 %{__install} -D -m 0644 conf/salt.master.conf \
@@ -125,22 +138,35 @@ cp -rp alembic/* ${RPM_BUILD_ROOT}/opt/calamari/alembic
     ${RPM_BUILD_ROOT}/etc/httpd/conf.d/calamari.conf
 sed -i '1iWSGISocketPrefix run/wsgi' ${RPM_BUILD_ROOT}/etc/httpd/conf.d/calamari.conf
 
-# cthulhu systemd   
-%{__install} -d ${RPM_BUILD_ROOT}/usr/lib/systemd/system/
-%{__install} -D -m 0644 conf/systemd/cthulhu-manager.service \
-    ${RPM_BUILD_ROOT}/usr/lib/systemd/system/cthulhu-manager.service
-
 %clean
 rm -rf $RPM_BUILD_ROOT
 
 %files -n calamari-server
+%{_bindir}/rrd2whisper
+%{_bindir}/whisper-create
+%{_bindir}/whisper-dump
+%{_bindir}/whisper-diff
+%{_bindir}/whisper-fetch
+%{_bindir}/whisper-fill
+%{_bindir}/whisper-info
+%{_bindir}/whisper-merge
+%{_bindir}/whisper-resize
+%{_bindir}/whisper-set-aggregation-method
+%{_bindir}/whisper-update
+%{_bindir}/carbon-aggregator
+%{_bindir}/carbon-cache
+%{_bindir}/carbon-client
+%{_bindir}/carbon-relay
+%{_bindir}/validate-storage-schemas
+
+%{python_sitelib}/whisper.py*
+
 /opt/calamari/
 %{_sysconfdir}/salt/master.d/calamari.conf
 %{_sysconfdir}/logrotate.d/calamari
 %{_sysconfdir}/httpd/conf.d/calamari.conf
 %{_sysconfdir}/calamari/
 %{_sysconfdir}/graphite/
-/usr/lib/systemd/system/cthulhu-manager.service
 /opt/calamari/webapp/secret.key
 %dir /var/lib/calamari
 %dir /var/lib/cthulhu
@@ -182,20 +208,10 @@ calamari_httpd()
     %if 0%{?rhel} && 0%{?rhel} >= 7
     systemctl enable salt-master > /dev/null 2>&1
     systemctl restart salt-master
-    systemctl enable carbon-cache.service > /dev/null 2>&1
-    systemctl enable cthulhu-manager.service > /dev/null 2>&1
+    systemctl enable supervisord > /dev/null 2>&1
+    systemctl restart supervisord.service > /dev/null 2>&1
     %else
     service salt-master restart
-
-    # concatenate our config chunk with supervisord.conf
-    echo "### START calamari-server ###" >> /etc/supervisord.conf
-    cat /etc/supervisor/conf.d/calamari.conf >> /etc/supervisord.conf
-    sed -i 's#/opt/calamari/venv/bin/carbon-cache.py#/usr/bin/carbon-cache#g' \
-        /etc/supervisord.conf
-    sed -i 's#/opt/calamari/venv/bin/cthulhu-manager#/usr/bin/cthulhu-manager#g' \
-        /etc/supervisord.conf
-    echo "### END calamari-server ###" >> /etc/supervisord.conf
-
     # Load our supervisor config
     service supervisord stop
     sleep 3
