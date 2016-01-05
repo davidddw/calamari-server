@@ -88,16 +88,20 @@ done
 
 %{__install} -d ${RPM_BUILD_ROOT}%{_sysconfdir}/graphite
 %{__install} -Dp -m0644 graphite/webapp/graphite/local_settings.py.example \
-    %{RPM_BUILD_ROOT}%{_sysconfdir}/graphite/local_settings.py
-ln -s %{_sysconfdir}/graphite/local_settings.py \
-    %{RPM_BUILD_ROOT}%{python_sitelib}/graphite/local_settings.py
+    ${RPM_BUILD_ROOT}%{_sysconfdir}/graphite/local_settings.py
+ln -sf %{_sysconfdir}/graphite/local_settings.py \
+    ${RPM_BUILD_ROOT}%{python_sitelib}/graphite/local_settings.py
 %{__install} -Dp -m0644 graphite/conf/dashboard.conf.example  \
-    %{RPM_BUILD_ROOT}%{_sysconfdir}/graphite/dashboard.conf
+    ${RPM_BUILD_ROOT}%{_sysconfdir}/graphite/dashboard.conf
 %{__install} -Dp -m0644 graphite/conf/graphite.wsgi.example \
-    %{RPM_BUILD_ROOT}%{_datadir}/graphite/graphite.wsgi
+    ${RPM_BUILD_ROOT}%{_datadir}/graphite/graphite.wsgi
+
+# Make manage.py available at an easier location.
+ln -s %{python_sitelib}/graphite/manage.py \
+    %{buildroot}%{_bindir}/graphite-manage
 
 # Rename build-index.sh.
-mv %{RPM_BUILD_ROOT}%{_bindir}/build-index.sh %{RPM_BUILD_ROOT}%{_bindir}/graphite-build-index
+mv ${RPM_BUILD_ROOT}%{_bindir}/build-index.sh ${RPM_BUILD_ROOT}%{_bindir}/graphite-build-index
 
 %{__install} -D -m 0644 conf/calamari.wsgi \
     ${RPM_BUILD_ROOT}/opt/calamari/conf/calamari.wsgi
@@ -182,6 +186,8 @@ rm -rf $RPM_BUILD_ROOT
 %{_bindir}/validate-storage-schemas
 %{_bindir}/calamari-ctl
 %{_bindir}/cthulhu-manager
+%{_bindir}/graphite-build-index
+%{_bindir}/graphite-manage
 
 /opt/calamari/
 %{_sysconfdir}/supervisord.d/calamari.ini
@@ -190,7 +196,6 @@ rm -rf $RPM_BUILD_ROOT
 %{_sysconfdir}/httpd/conf.d/calamari.conf
 %{_sysconfdir}/calamari/
 %{_sysconfdir}/graphite/
-/opt/calamari/webapp/secret.key
 %dir /var/lib/calamari
 %dir /var/lib/cthulhu
 %dir /var/lib/graphite
@@ -213,6 +218,10 @@ rm -rf $RPM_BUILD_ROOT
 %{python_sitelib}/calamari_web*.egg-info
 %{python_sitelib}/calamari_rest
 %{python_sitelib}/calamari_rest_api*.egg-info
+%{python_sitelib}/graphite/
+%{python_sitelib}/graphite_web-*-py?.?.egg-info
+
+%{_datadir}/graphite
 
 %post -n calamari-server
 calamari_httpd()
@@ -293,5 +302,5 @@ fi
 exit 0
 
 %changelog
-* Thu Jun 5 2016 David <d05660@gmail.com> - 0.9.15-1
+* Thu Jan 5 2016 David <d05660@gmail.com> - 0.9.15-1
 - Update to new version
