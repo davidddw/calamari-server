@@ -238,7 +238,9 @@ calamari_httpd()
     chown -R apache.apache /var/lib/graphite
 
     # centos64
-    mv /etc/httpd/conf.d/welcome.conf /etc/httpd/conf.d/welcome.conf.orig
+    if [[ -f "/etc/httpd/conf.d/welcome.conf" ]] then;
+        mv /etc/httpd/conf.d/welcome.conf /etc/httpd/conf.d/welcome.conf.orig
+    fi
     chown -R apache:apache /var/log/calamari
     cd $d
 
@@ -248,6 +250,7 @@ calamari_httpd()
     systemctl restart salt-master
     systemctl enable supervisord > /dev/null 2>&1
     systemctl restart supervisord.service > /dev/null 2>&1
+    chown -R apache:apache /var/log/calamari
     %else
     service salt-master restart
     # Load our supervisor config
@@ -268,7 +271,6 @@ service httpd start
 # Prompt the user to proceed with the final script-driven
 # part of the installation process
 echo "Thank you for installing Calamari."
-echo ""
 echo "Please run 'sudo calamari-ctl initialize' to complete the installation."
 exit 0
 
@@ -304,5 +306,5 @@ fi
 exit 0
 
 %changelog
-* Thu Jan 5 2016 David <d05660@gmail.com> - 0.9.15-1
+* Thu Jan 5 2016 David <d05660@gmail.com> - 1.4.0-1
 - Update to new version

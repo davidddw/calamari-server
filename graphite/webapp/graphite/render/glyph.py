@@ -131,377 +131,376 @@ UnitSystems = {
 
 
 class GraphError(Exception):
-  pass
+    pass
 
 
 class Graph:
-  customizable = ('width','height','margin','bgcolor','fgcolor', \
-                 'fontName','fontSize','fontBold','fontItalic', \
-                 'colorList','template','yAxisSide','outputFormat')
-
-  def __init__(self,**params):
-    self.params = params
-    self.data = params['data']
-    self.dataLeft = []
-    self.dataRight = []
-    self.secondYAxis = False
-    self.width = int( params.get('width',200) )
-    self.height = int( params.get('height',200) )
-    self.margin = int( params.get('margin',10) )
-    self.userTimeZone = params.get('tz')
-    self.logBase = params.get('logBase', None)
-    self.minorY = int(params.get('minorY', 1))
-
-    if self.logBase:
-      if self.logBase == 'e':
-        self.logBase = math.e
-      elif self.logBase < 1:
-        self.logBase = None
-        params['logBase'] = None
-      else:
-        self.logBase = float(self.logBase)
-
-    if self.margin < 0:
-      self.margin = 10
-
-    self.area = {
-      'xmin' : self.margin + 10, # Need extra room when the time is near the left edge
-      'xmax' : self.width - self.margin,
-      'ymin' : self.margin,
-      'ymax' : self.height - self.margin,
-    }
-
-    self.loadTemplate( params.get('template','default') )
-
-    self.setupCairo( params.get('outputFormat','png').lower() )
-
-    opts = self.ctx.get_font_options()
-    opts.set_antialias( cairo.ANTIALIAS_NONE )
-    self.ctx.set_font_options( opts )
-
-    self.foregroundColor = params.get('fgcolor',self.defaultForeground)
-    self.backgroundColor = params.get('bgcolor',self.defaultBackground)
-    self.setColor( self.backgroundColor )
-    self.drawRectangle( 0, 0, self.width, self.height )
-
-    if 'colorList' in params:
-      colorList = unquote_plus( str(params['colorList']) ).split(',')
-    else:
-      colorList = self.defaultColorList
-    self.colors = itertools.cycle( colorList )
-
-    self.drawGraph(**params)
-
-  def setupCairo(self,outputFormat='png'):
-    self.outputFormat = outputFormat
-    if outputFormat == 'png':
-      self.surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, self.width, self.height)
-    else:
-      self.surfaceData = StringIO.StringIO()
-      self.surface = cairo.SVGSurface(self.surfaceData, self.width, self.height)
-    self.ctx = cairo.Context(self.surface)
-
-  def setColor(self, value, alpha=1.0, forceAlpha=False):
-    if type(value) is tuple and len(value) == 3:
-      r,g,b = value
-    elif value in colorAliases:
-      r,g,b = colorAliases[value]
-    elif type(value) in (str,unicode) and len(value) >= 6:
-      s = value
-      if s[0] == '#': s = s[1:]
-      if s[0:3] == '%23': s = s[3:]
-      r,g,b = ( int(s[0:2],base=16), int(s[2:4],base=16), int(s[4:6],base=16) )
-      if len(s) == 8 and not forceAlpha:
-        alpha = float( int(s[6:8],base=16) ) / 255.0
-    else:
-      raise ValueError, "Must specify an RGB 3-tuple, an html color string, or a known color alias!"
-    r,g,b = [float(c) / 255.0 for c in (r,g,b)]
-    self.ctx.set_source_rgba(r,g,b,alpha)
-
-  def setFont(self, **params):
-    p = self.defaultFontParams.copy()
-    p.update(params)
-    self.ctx.select_font_face(p['name'], p['italic'], p['bold'])
-    self.ctx.set_font_size( float(p['size']) )
-
-  def getExtents(self,text=None,fontOptions={}):
-    if fontOptions:
-      self.setFont(**fontOptions)
-    F = self.ctx.font_extents()
-    extents = { 'maxHeight' : F[2], 'maxAscent' : F[0], 'maxDescent' : F[1] }
-    if text:
-      T = self.ctx.text_extents(text)
-      extents['width'] = T[4]
-      extents['height'] = T[3]
-    return extents
-
-  def drawRectangle(self, x, y, w, h, fill=True, dash=False):
-    if not fill:
-      o = self.ctx.get_line_width() / 2.0 #offset for borders so they are drawn as lines would be
-      x += o
-      y += o
-      w -= o
-      h -= o
-    self.ctx.rectangle(x,y,w,h)
-    if fill:
-      self.ctx.fill()
-    else:
-      if dash:
-        self.ctx.set_dash(dash,1)
-      else:
-        self.ctx.set_dash([],0)
-      self.ctx.stroke()
-
-  def drawText(self,text,x,y,font={},color={},align='left',valign='top',border=False,rotate=0):
-    if font: self.setFont(**font)
-    if color: self.setColor(**color)
-    extents = self.getExtents(text)
-    angle = math.radians(rotate)
-    origMatrix = self.ctx.get_matrix()
-
-    horizontal = {
-      'left' : 0,
-      'center' : extents['width'] / 2,
-      'right' : extents['width'],
-    }[align.lower()]
-    vertical = {
-      'top' : extents['maxAscent'],
-      'middle' : extents['maxHeight'] / 2 - extents['maxDescent'],
-      'bottom' : -extents['maxDescent'],
-      'baseline' : 0,
-    }[valign.lower()]
-
-    self.ctx.move_to(x,y)
-    self.ctx.rel_move_to( math.sin(angle) * -vertical, math.cos(angle) * vertical)
-    self.ctx.rotate(angle)
-    self.ctx.rel_move_to( -horizontal, 0 )
-    bx, by = self.ctx.get_current_point()
-    by -= extents['maxAscent']
-    self.ctx.text_path(text)
-    self.ctx.fill()
-    if border:
-      self.drawRectangle(bx, by, extents['width'], extents['maxHeight'], fill=False)
-    else:
-      self.ctx.set_matrix(origMatrix)
-
-  def drawTitle(self,text):
-    self.encodeHeader('title')
-
-    y = self.area['ymin']
-    x = self.width / 2
-    lineHeight = self.getExtents()['maxHeight']
-    for line in text.split('\n'):
-      self.drawText(line, x, y, align='center')
-      y += lineHeight
-    if self.params.get('yAxisSide') == 'right':
-      self.area['ymin'] = y
-    else:
-      self.area['ymin'] = y + self.margin
-
-
-  def drawLegend(self, elements, unique=False): #elements is [ (name,color,rightSide), (name,color,rightSide), ... ]
-    self.encodeHeader('legend')
-
-    if unique:
-      # remove duplicate names
-      namesSeen = []
-      newElements = []
-      for e in elements:
-        if e[0] not in namesSeen:
-          namesSeen.append(e[0])
-          newElements.append(e)
-      elements = newElements
-
-    # Check if there's enough room to use two columns.
-    rightSideLabels = False
-    padding = 5
-    longestName = sorted([e[0] for e in elements],key=len)[-1]
-    testSizeName = longestName + " " + longestName # Double it to check if there's enough room for 2 columns
-    testExt = self.getExtents(testSizeName)
-    testBoxSize = testExt['maxHeight'] - 1
-    testWidth = testExt['width'] + 2 * (testBoxSize + padding)
-    if testWidth + 50 < self.width:
-      rightSideLabels = True
-
-    if(self.secondYAxis and rightSideLabels):
-      extents = self.getExtents(longestName)
-      padding = 5
-      boxSize = extents['maxHeight'] - 1
-      lineHeight = extents['maxHeight'] + 1
-      labelWidth = extents['width'] + 2 * (boxSize + padding)
-      columns = max(1, math.floor( (self.width - self.area['xmin']) / labelWidth ))
-      numRight = len([name for (name,color,rightSide) in elements if rightSide])
-      numberOfLines = max(len(elements) - numRight, numRight)
-      columns = math.floor(columns / 2.0)
-      if columns < 1: columns = 1
-      legendHeight = max(1, (numberOfLines / columns)) * (lineHeight + padding)
-      self.area['ymax'] -= legendHeight #scoot the drawing area up to fit the legend
-      self.ctx.set_line_width(1.0)
-      x = self.area['xmin']
-      y = self.area['ymax'] + (2 * padding)
-      n = 0
-      xRight = self.area['xmax'] - self.area['xmin']
-      yRight = y
-      nRight = 0
-      for (name,color,rightSide) in elements:
-        self.setColor( color )
-        if rightSide:
-          nRight += 1
-          self.drawRectangle(xRight - padding,yRight,boxSize,boxSize)
-          self.setColor( 'darkgrey' )
-          self.drawRectangle(xRight - padding,yRight,boxSize,boxSize,fill=False)
-          self.setColor( self.foregroundColor )
-          self.drawText(name, xRight - boxSize, yRight, align='right')
-          xRight -= labelWidth
-          if nRight % columns == 0:
-            xRight = self.area['xmax'] - self.area['xmin']
-            yRight += lineHeight
-        else:
-          n += 1
-          self.drawRectangle(x,y,boxSize,boxSize)
-          self.setColor( 'darkgrey' )
-          self.drawRectangle(x,y,boxSize,boxSize,fill=False)
-          self.setColor( self.foregroundColor )
-          self.drawText(name, x + boxSize + padding, y, align='left')
-          x += labelWidth
-          if n % columns == 0:
-            x = self.area['xmin']
-            y += lineHeight
-    else:
-      extents = self.getExtents(longestName)
-      boxSize = extents['maxHeight'] - 1
-      lineHeight = extents['maxHeight'] + 1
-      labelWidth = extents['width'] + 2 * (boxSize + padding)
-      columns = math.floor( self.width / labelWidth )
-      if columns < 1: columns = 1
-      numberOfLines = math.ceil( float(len(elements)) / columns )
-      legendHeight = numberOfLines * (lineHeight + padding)
-      self.area['ymax'] -= legendHeight #scoot the drawing area up to fit the legend
-      self.ctx.set_line_width(1.0)
-      x = self.area['xmin']
-      y = self.area['ymax'] + (2 * padding)
-      for i,(name,color,rightSide) in enumerate(elements):
-        if rightSide:
-          self.setColor( color )
-          self.drawRectangle(x + labelWidth + padding,y,boxSize,boxSize)
-          self.setColor( 'darkgrey' )
-          self.drawRectangle(x + labelWidth + padding,y,boxSize,boxSize,fill=False)
-          self.setColor( self.foregroundColor )
-          self.drawText(name, x + labelWidth, y, align='right')
-          x += labelWidth
-        else:
-          self.setColor( color )
-          self.drawRectangle(x,y,boxSize,boxSize)
-          self.setColor( 'darkgrey' )
-          self.drawRectangle(x,y,boxSize,boxSize,fill=False)
-          self.setColor( self.foregroundColor )
-          self.drawText(name, x + boxSize + padding, y, align='left')
-          x += labelWidth
-        if (i + 1) % columns == 0:
-          x = self.area['xmin']
-          y += lineHeight
-
-  def encodeHeader(self,text):
-    self.ctx.save()
-    self.setColor( self.backgroundColor )
-    self.ctx.move_to(-88,-88) # identifier
-    for i, char in enumerate(text):
-      self.ctx.line_to(-ord(char), -i-1)
-    self.ctx.stroke()
-    self.ctx.restore()
-
-  def loadTemplate(self,template):
-    conf = SafeConfigParser()
-    if conf.read(settings.GRAPHTEMPLATES_CONF):
-      defaults = dict( conf.items('default') )
-      if template in conf.sections():
-        opts = dict( conf.items(template) )
-      else:
-        opts = defaults
-    else:
-      opts = defaults = defaultGraphOptions
-
-    self.defaultBackground = opts.get('background', defaults['background'])
-    self.defaultForeground = opts.get('foreground', defaults['foreground'])
-    self.defaultMajorGridLineColor = opts.get('majorline', defaults['majorline'])
-    self.defaultMinorGridLineColor = opts.get('minorline', defaults['minorline'])
-    self.defaultColorList = [c.strip() for c in opts.get('linecolors', defaults['linecolors']).split(',')]
-    fontName = opts.get('fontname', defaults['fontname'])
-    fontSize = float( opts.get('fontsize', defaults['fontsize']) )
-    fontBold = opts.get('fontbold', defaults['fontbold']).lower() == 'true'
-    fontItalic = opts.get('fontitalic', defaults['fontitalic']).lower() == 'true'
-    self.defaultFontParams = {
-      'name' : self.params.get('fontName',fontName),
-      'size' : int( self.params.get('fontSize',fontSize) ),
-      'bold' : self.params.get('fontBold',fontBold),
-      'italic' : self.params.get('fontItalic',fontItalic),
-    }
-
-  def output(self, fileObj):
-    if self.outputFormat == 'png':
-      self.surface.write_to_png(fileObj)
-    else:
-      metaData = {
-        'x': {
-          'start': self.startTime,
-          'end': self.endTime
-        },
-        'options': {
-          'lineWidth': self.lineWidth
-        },
-        'font': self.defaultFontParams,
-        'area': self.area,
-        'series': []
-      }
-
-      if not self.secondYAxis:
-        metaData['y'] = {
-          'top': self.yTop,
-          'bottom': self.yBottom,
-          'step': self.yStep,
-          'labels': self.yLabels,
-          'labelValues': self.yLabelValues
+    customizable = ('width','height','margin','bgcolor','fgcolor', \
+                     'fontName','fontSize','fontBold','fontItalic', \
+                     'colorList','template','yAxisSide','outputFormat')
+    
+    def __init__(self,**params):
+        self.params = params
+        self.data = params['data']
+        self.dataLeft = []
+        self.dataRight = []
+        self.secondYAxis = False
+        self.width = int( params.get('width',200) )
+        self.height = int( params.get('height',200) )
+        self.margin = int( params.get('margin',10) )
+        self.userTimeZone = params.get('tz')
+        self.logBase = params.get('logBase', None)
+        self.minorY = int(params.get('minorY', 1))
+    
+        if self.logBase:
+            if self.logBase == 'e':
+                self.logBase = math.e
+            elif self.logBase < 1:
+                self.logBase = None
+                params['logBase'] = None
+            else:
+                self.logBase = float(self.logBase)
+    
+        if self.margin < 0:
+            self.margin = 10
+    
+        self.area = {
+          'xmin' : self.margin + 10, # Need extra room when the time is near the left edge
+          'xmax' : self.width - self.margin,
+          'ymin' : self.margin,
+          'ymax' : self.height - self.margin,
         }
-
-      for series in self.data:
-        if 'stacked' not in series.options:
-          metaData['series'].append({
-            'name': series.name,
-            'start': series.start,
-            'end': series.end,
-            'step': series.step,
-            'valuesPerPoint': series.valuesPerPoint,
-            'color': series.color,
-            'data': series,
-            'options': series.options
-          })
-
-      self.surface.finish()
-      svgData = self.surfaceData.getvalue()
-      self.surfaceData.close()
-
-      svgData = svgData.replace('pt"', 'px"', 2) # we expect height/width in pixels, not points
-      svgData = svgData.replace('</svg>\n', '', 1)
-      svgData = svgData.replace('</defs>\n<g', '</defs>\n<g class="graphite"', 1)
-
-      # We encode headers using special paths with d^="M -88 -88"
-      # Find these, and turn them into <g> wrappers instead
-      def onHeaderPath(match):
-        name = ''
-        for char in re.findall(r'L -(\d+) -\d+', match.group(1)):
-          name += chr(int(char))
-        return '</g><g data-header="true" class="%s">' % name
-      svgData = re.sub(r'<path.+?d="M -88 -88 (.+?)"/>', onHeaderPath, svgData)
-
-      # Hack to replace the first </g><g> with <g>
-      svgData = svgData.replace('</g><g data-header','<g data-header',1)
-      svgData = svgData.replace(' data-header="true"','')
-
-      fileObj.write(svgData)
-      fileObj.write("""<script>
-  <![CDATA[
-    metadata = %s
-  ]]>
+    
+        self.loadTemplate( params.get('template','default') )
+    
+        self.setupCairo( params.get('outputFormat','png').lower() )
+    
+        opts = self.ctx.get_font_options()
+        opts.set_antialias( cairo.ANTIALIAS_NONE )
+        self.ctx.set_font_options( opts )
+    
+        self.foregroundColor = params.get('fgcolor',self.defaultForeground)
+        self.backgroundColor = params.get('bgcolor',self.defaultBackground)
+        self.setColor( self.backgroundColor )
+        self.drawRectangle( 0, 0, self.width, self.height )
+    
+        if 'colorList' in params:
+            colorList = unquote_plus( str(params['colorList']) ).split(',')
+        else:
+            colorList = self.defaultColorList
+        self.colors = itertools.cycle( colorList )
+    
+        self.drawGraph(**params)
+    
+    def setupCairo(self,outputFormat='png'):
+        self.outputFormat = outputFormat
+        if outputFormat == 'png':
+            self.surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, self.width, self.height)
+        else:
+            self.surfaceData = StringIO.StringIO()
+            self.surface = cairo.SVGSurface(self.surfaceData, self.width, self.height)
+        self.ctx = cairo.Context(self.surface)
+    
+    def setColor(self, value, alpha=1.0, forceAlpha=False):
+        if type(value) is tuple and len(value) == 3:
+            r,g,b = value
+        elif value in colorAliases:
+            r,g,b = colorAliases[value]
+        elif type(value) in (str,unicode) and len(value) >= 6:
+            s = value
+            if s[0] == '#': s = s[1:]
+            if s[0:3] == '%23': s = s[3:]
+            r,g,b = ( int(s[0:2],base=16), int(s[2:4],base=16), int(s[4:6],base=16) )
+            if len(s) == 8 and not forceAlpha:
+                alpha = float( int(s[6:8],base=16) ) / 255.0
+        else:
+            raise ValueError, "Must specify an RGB 3-tuple, an html color string, or a known color alias!"
+        r,g,b = [float(c) / 255.0 for c in (r,g,b)]
+        self.ctx.set_source_rgba(r,g,b,alpha)
+    
+    def setFont(self, **params):
+        p = self.defaultFontParams.copy()
+        p.update(params)
+        self.ctx.select_font_face(p['name'], p['italic'], p['bold'])
+        self.ctx.set_font_size( float(p['size']) )
+    
+    def getExtents(self,text=None,fontOptions={}):
+        if fontOptions:
+            self.setFont(**fontOptions)
+        F = self.ctx.font_extents()
+        extents = { 'maxHeight' : F[2], 'maxAscent' : F[0], 'maxDescent' : F[1] }
+        if text:
+            T = self.ctx.text_extents(text)
+            extents['width'] = T[4]
+            extents['height'] = T[3]
+        return extents
+    
+    def drawRectangle(self, x, y, w, h, fill=True, dash=False):
+        if not fill:
+            o = self.ctx.get_line_width() / 2.0 #offset for borders so they are drawn as lines would be
+            x += o
+            y += o
+            w -= o
+            h -= o
+        self.ctx.rectangle(x,y,w,h)
+        if fill:
+            self.ctx.fill()
+        else:
+            if dash:
+                self.ctx.set_dash(dash,1)
+            else:
+                self.ctx.set_dash([],0)
+            self.ctx.stroke()
+    
+    def drawText(self,text,x,y,font={},color={},align='left',valign='top',border=False,rotate=0):
+        if font: self.setFont(**font)
+        if color: self.setColor(**color)
+        extents = self.getExtents(text)
+        angle = math.radians(rotate)
+        origMatrix = self.ctx.get_matrix()
+    
+        horizontal = {
+          'left' : 0,
+          'center' : extents['width'] / 2,
+          'right' : extents['width'],
+        }[align.lower()]
+        vertical = {
+          'top' : extents['maxAscent'],
+          'middle' : extents['maxHeight'] / 2 - extents['maxDescent'],
+          'bottom' : -extents['maxDescent'],
+          'baseline' : 0,
+        }[valign.lower()]
+    
+        self.ctx.move_to(x,y)
+        self.ctx.rel_move_to( math.sin(angle) * -vertical, math.cos(angle) * vertical)
+        self.ctx.rotate(angle)
+        self.ctx.rel_move_to( -horizontal, 0 )
+        bx, by = self.ctx.get_current_point()
+        by -= extents['maxAscent']
+        self.ctx.text_path(text)
+        self.ctx.fill()
+        if border:
+            self.drawRectangle(bx, by, extents['width'], extents['maxHeight'], fill=False)
+        else:
+            self.ctx.set_matrix(origMatrix)
+    
+    def drawTitle(self,text):
+        self.encodeHeader('title')
+    
+        y = self.area['ymin']
+        x = self.width / 2
+        lineHeight = self.getExtents()['maxHeight']
+        for line in text.split('\n'):
+            self.drawText(line, x, y, align='center')
+            y += lineHeight
+        if self.params.get('yAxisSide') == 'right':
+            self.area['ymin'] = y
+        else:
+            self.area['ymin'] = y + self.margin
+    
+    def drawLegend(self, elements, unique=False): #elements is [ (name,color,rightSide), (name,color,rightSide), ... ]
+        self.encodeHeader('legend')
+    
+        if unique:
+            # remove duplicate names
+            namesSeen = []
+            newElements = []
+            for e in elements:
+                if e[0] not in namesSeen:
+                    namesSeen.append(e[0])
+                    newElements.append(e)
+            elements = newElements
+    
+        # Check if there's enough room to use two columns.
+        rightSideLabels = False
+        padding = 5
+        longestName = sorted([e[0] for e in elements],key=len)[-1]
+        testSizeName = longestName + " " + longestName # Double it to check if there's enough room for 2 columns
+        testExt = self.getExtents(testSizeName)
+        testBoxSize = testExt['maxHeight'] - 1
+        testWidth = testExt['width'] + 2 * (testBoxSize + padding)
+        if testWidth + 50 < self.width:
+            rightSideLabels = True
+    
+        if(self.secondYAxis and rightSideLabels):
+            extents = self.getExtents(longestName)
+            padding = 5
+            boxSize = extents['maxHeight'] - 1
+            lineHeight = extents['maxHeight'] + 1
+            labelWidth = extents['width'] + 2 * (boxSize + padding)
+            columns = max(1, math.floor( (self.width - self.area['xmin']) / labelWidth ))
+            numRight = len([name for (name,color,rightSide) in elements if rightSide])
+            numberOfLines = max(len(elements) - numRight, numRight)
+            columns = math.floor(columns / 2.0)
+            if columns < 1: columns = 1
+            legendHeight = max(1, (numberOfLines / columns)) * (lineHeight + padding)
+            self.area['ymax'] -= legendHeight #scoot the drawing area up to fit the legend
+            self.ctx.set_line_width(1.0)
+            x = self.area['xmin']
+            y = self.area['ymax'] + (2 * padding)
+            n = 0
+            xRight = self.area['xmax'] - self.area['xmin']
+            yRight = y
+            nRight = 0
+            for (name,color,rightSide) in elements:
+                self.setColor( color )
+                if rightSide:
+                    nRight += 1
+                    self.drawRectangle(xRight - padding,yRight,boxSize,boxSize)
+                    self.setColor( 'darkgrey' )
+                    self.drawRectangle(xRight - padding,yRight,boxSize,boxSize,fill=False)
+                    self.setColor( self.foregroundColor )
+                    self.drawText(name, xRight - boxSize, yRight, align='right')
+                    xRight -= labelWidth
+                    if nRight % columns == 0:
+                        xRight = self.area['xmax'] - self.area['xmin']
+                        yRight += lineHeight
+                else:
+                    n += 1
+                    self.drawRectangle(x,y,boxSize,boxSize)
+                    self.setColor( 'darkgrey' )
+                    self.drawRectangle(x,y,boxSize,boxSize,fill=False)
+                    self.setColor( self.foregroundColor )
+                    self.drawText(name, x + boxSize + padding, y, align='left')
+                    x += labelWidth
+                    if n % columns == 0:
+                        x = self.area['xmin']
+                        y += lineHeight
+        else:
+            extents = self.getExtents(longestName)
+            boxSize = extents['maxHeight'] - 1
+            lineHeight = extents['maxHeight'] + 1
+            labelWidth = extents['width'] + 2 * (boxSize + padding)
+            columns = math.floor( self.width / labelWidth )
+            if columns < 1: columns = 1
+            numberOfLines = math.ceil( float(len(elements)) / columns )
+            legendHeight = numberOfLines * (lineHeight + padding)
+            self.area['ymax'] -= legendHeight #scoot the drawing area up to fit the legend
+            self.ctx.set_line_width(1.0)
+            x = self.area['xmin']
+            y = self.area['ymax'] + (2 * padding)
+            for i,(name,color,rightSide) in enumerate(elements):
+                if rightSide:
+                    self.setColor( color )
+                    self.drawRectangle(x + labelWidth + padding,y,boxSize,boxSize)
+                    self.setColor( 'darkgrey' )
+                    self.drawRectangle(x + labelWidth + padding,y,boxSize,boxSize,fill=False)
+                    self.setColor( self.foregroundColor )
+                    self.drawText(name, x + labelWidth, y, align='right')
+                    x += labelWidth
+                else:
+                    self.setColor( color )
+                    self.drawRectangle(x,y,boxSize,boxSize)
+                    self.setColor( 'darkgrey' )
+                    self.drawRectangle(x,y,boxSize,boxSize,fill=False)
+                    self.setColor( self.foregroundColor )
+                    self.drawText(name, x + boxSize + padding, y, align='left')
+                    x += labelWidth
+                if (i + 1) % columns == 0:
+                    x = self.area['xmin']
+                    y += lineHeight
+    
+    def encodeHeader(self,text):
+        self.ctx.save()
+        self.setColor( self.backgroundColor )
+        self.ctx.move_to(-88,-88) # identifier
+        for i, char in enumerate(text):
+            self.ctx.line_to(-ord(char), -i-1)
+        self.ctx.stroke()
+        self.ctx.restore()
+    
+    def loadTemplate(self,template):
+        conf = SafeConfigParser()
+        if conf.read(settings.GRAPHTEMPLATES_CONF):
+            defaults = dict( conf.items('default') )
+            if template in conf.sections():
+                opts = dict( conf.items(template) )
+            else:
+                opts = defaults
+        else:
+            opts = defaults = defaultGraphOptions
+    
+        self.defaultBackground = opts.get('background', defaults['background'])
+        self.defaultForeground = opts.get('foreground', defaults['foreground'])
+        self.defaultMajorGridLineColor = opts.get('majorline', defaults['majorline'])
+        self.defaultMinorGridLineColor = opts.get('minorline', defaults['minorline'])
+        self.defaultColorList = [c.strip() for c in opts.get('linecolors', defaults['linecolors']).split(',')]
+        fontName = opts.get('fontname', defaults['fontname'])
+        fontSize = float( opts.get('fontsize', defaults['fontsize']) )
+        fontBold = opts.get('fontbold', defaults['fontbold']).lower() == 'true'
+        fontItalic = opts.get('fontitalic', defaults['fontitalic']).lower() == 'true'
+        self.defaultFontParams = {
+          'name' : self.params.get('fontName',fontName),
+          'size' : int( self.params.get('fontSize',fontSize) ),
+          'bold' : self.params.get('fontBold',fontBold),
+          'italic' : self.params.get('fontItalic',fontItalic),
+        }
+    
+    def output(self, fileObj):
+        if self.outputFormat == 'png':
+            self.surface.write_to_png(fileObj)
+        else:
+            metaData = {
+                'x': {
+                  'start': self.startTime,
+                  'end': self.endTime
+                },
+                'options': {
+                  'lineWidth': self.lineWidth
+                },
+                'font': self.defaultFontParams,
+                'area': self.area,
+                'series': []
+            }
+        
+            if not self.secondYAxis:
+                metaData['y'] = {
+                  'top': self.yTop,
+                  'bottom': self.yBottom,
+                  'step': self.yStep,
+                  'labels': self.yLabels,
+                  'labelValues': self.yLabelValues
+                }
+        
+            for series in self.data:
+                if 'stacked' not in series.options:
+                    metaData['series'].append({
+                        'name': series.name,
+                        'start': series.start,
+                        'end': series.end,
+                        'step': series.step,
+                        'valuesPerPoint': series.valuesPerPoint,
+                        'color': series.color,
+                        'data': series,
+                        'options': series.options
+                    })
+        
+            self.surface.finish()
+            svgData = self.surfaceData.getvalue()
+            self.surfaceData.close()
+        
+            svgData = svgData.replace('pt"', 'px"', 2) # we expect height/width in pixels, not points
+            svgData = svgData.replace('</svg>\n', '', 1)
+            svgData = svgData.replace('</defs>\n<g', '</defs>\n<g class="graphite"', 1)
+        
+            # We encode headers using special paths with d^="M -88 -88"
+            # Find these, and turn them into <g> wrappers instead
+            def onHeaderPath(match):
+                name = ''
+                for char in re.findall(r'L -(\d+) -\d+', match.group(1)):
+                    name += chr(int(char))
+                return '</g><g data-header="true" class="%s">' % name
+            svgData = re.sub(r'<path.+?d="M -88 -88 (.+?)"/>', onHeaderPath, svgData)
+        
+            # Hack to replace the first </g><g> with <g>
+            svgData = svgData.replace('</g><g data-header','<g data-header',1)
+            svgData = svgData.replace(' data-header="true"','')
+        
+            fileObj.write(svgData)
+            fileObj.write("""<script>
+    <![CDATA[
+        metadata = %s
+    ]]>
 </script>
 </svg>""" % json.dumps(metaData))
 

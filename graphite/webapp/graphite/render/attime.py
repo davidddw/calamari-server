@@ -23,115 +23,115 @@ months = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec
 weekdays = ['sun','mon','tue','wed','thu','fri','sat']
 
 def parseATTime(s, tzinfo=None, now=None):
-  if tzinfo is None:
-    tzinfo = timezone.get_current_timezone()
-
-  s = s.strip().lower().replace('_','').replace(',','').replace(' ','')
-  if s.isdigit():
-    if len(s) == 8 and int(s[:4]) > 1900 and int(s[4:6]) < 13 and int(s[6:]) < 32:
-      pass #Fall back because its not a timestamp, its YYYYMMDD form
+    if tzinfo is None:
+        tzinfo = timezone.get_current_timezone()
+    
+    s = s.strip().lower().replace('_','').replace(',','').replace(' ','')
+    if s.isdigit():
+        if len(s) == 8 and int(s[:4]) > 1900 and int(s[4:6]) < 13 and int(s[6:]) < 32:
+            pass #Fall back because its not a timestamp, its YYYYMMDD form
+        else:
+            return datetime.fromtimestamp(int(s),tzinfo)
+    elif ':' in s:
+        return tzinfo.localize(datetime.strptime(s,'%H:%M%Y%m%d'), daylight)
+    if '+' in s:
+        ref,offset = s.split('+',1)
+        offset = '+' + offset
+    elif '-' in s:
+        ref,offset = s.split('-',1)
+        offset = '-' + offset
     else:
-      return datetime.fromtimestamp(int(s),tzinfo)
-  elif ':' in s:
-    return tzinfo.localize(datetime.strptime(s,'%H:%M%Y%m%d'), daylight)
-  if '+' in s:
-    ref,offset = s.split('+',1)
-    offset = '+' + offset
-  elif '-' in s:
-    ref,offset = s.split('-',1)
-    offset = '-' + offset
-  else:
-    ref,offset = s,''
-  return tzinfo.normalize(parseTimeReference(ref).astimezone(tzinfo) + parseTimeOffset(offset))
+        ref,offset = s,''
+    return tzinfo.normalize(parseTimeReference(ref).astimezone(tzinfo) + parseTimeOffset(offset))
 
 
 def parseTimeReference(ref):
-  if not ref or ref == 'now': return datetime.now(pytz.utc)
-  #Time-of-day reference
-  i = ref.find(':')
-  hour,min = 0,0
-  if i != -1:
-    hour = int( ref[:i] )
-    min = int( ref[i+1:i+3] )
-    ref = ref[i+3:]
-    if ref[:2] == 'am': ref = ref[2:]
-    elif ref[:2] == 'pm':
-      hour = (hour + 12) % 24
-      ref = ref[2:]
-  if ref.startswith('noon'):
-    hour,min = 12,0
-    ref = ref[4:]
-  elif ref.startswith('midnight'):
+    if not ref or ref == 'now': return datetime.now(pytz.utc)
+    #Time-of-day reference
+    i = ref.find(':')
     hour,min = 0,0
-    ref = ref[8:]
-  elif ref.startswith('teatime'):
-    hour,min = 16,0
-    ref = ref[7:]
-
-  refDate = datetime.now(pytz.utc).replace(hour=hour,minute=min,second=0)
-
-  #Day reference
-  if ref in ('yesterday','today','tomorrow'): #yesterday, today, tomorrow
-    if ref == 'yesterday':
-      refDate = refDate - timedelta(days=1)
-    if ref == 'tomorrow':
-      refDate = refDate + timedelta(days=1)
-  elif ref.count('/') == 2: #MM/DD/YY[YY]
-    m,d,y = map(int,ref.split('/'))
-    if y < 1900: y += 1900
-    if y < 1970: y += 100
-    refDate = refDate.replace(year=y)
-
-    try: # Fix for Bug #551771
-        refDate = refDate.replace(month=m)
-        refDate = refDate.replace(day=d)
-    except:
-        refDate = refDate.replace(day=d)
-        refDate = refDate.replace(month=m)
-
-  elif len(ref) == 8 and ref.isdigit(): #YYYYMMDD
-      refDate = refDate.replace(year= int(ref[:4]))
-
-    try: # Fix for Bug #551771
-        refDate = refDate.replace(month= int(ref[4:6]))
-        refDate = refDate.replace(day= int(ref[6:8]))
-    except:
-        refDate = refDate.replace(day= int(ref[6:8]))
-        refDate = refDate.replace(month= int(ref[4:6]))
-
-  elif ref[:3] in months: #MonthName DayOfMonth
-    refDate = refDate.replace(month= months.index(ref[:3]) + 1)
-    if ref[-2:].isdigit():
-        refDate = refDate.replace(day= int(ref[-2:]))
-    elif ref[-1:].isdigit():
-        refDate = refDate.replace(day= int(ref[-1:]))
-    else:
-        raise Exception, "Day of month required after month name"
-  elif ref[:3] in weekdays: #DayOfWeek (Monday, etc)
-    todayDayName = refDate.strftime("%a").lower()[:3]
-    today = weekdays.index( todayDayName )
-    twoWeeks = weekdays * 2
-    dayOffset = today - twoWeeks.index(ref[:3])
-    if dayOffset < 0: dayOffset += 7
-    refDate -= timedelta(days=dayOffset)
-  elif ref:
-      raise Exception, "Unknown day reference"
-
-  return refDate
+    if i != -1:
+        hour = int( ref[:i] )
+        min = int( ref[i+1:i+3] )
+        ref = ref[i+3:]
+        if ref[:2] == 'am': ref = ref[2:]
+        elif ref[:2] == 'pm':
+            hour = (hour + 12) % 24
+            ref = ref[2:]
+    if ref.startswith('noon'):
+        hour, min = 12,0
+        ref = ref[4:]
+    elif ref.startswith('midnight'):
+        hour, min = 0,0
+        ref = ref[8:]
+    elif ref.startswith('teatime'):
+        hour, min = 16,0
+        ref = ref[7:]
+    
+    refDate = datetime.now(pytz.utc).replace(hour=hour,minute=min,second=0)
+    
+    #Day reference
+    if ref in ('yesterday','today','tomorrow'): #yesterday, today, tomorrow
+        if ref == 'yesterday':
+            refDate = refDate - timedelta(days=1)
+        if ref == 'tomorrow':
+            refDate = refDate + timedelta(days=1)
+    elif ref.count('/') == 2: #MM/DD/YY[YY]
+        m,d,y = map(int,ref.split('/'))
+        if y < 1900: y += 1900
+        if y < 1970: y += 100
+        refDate = refDate.replace(year=y)
+    
+        try: # Fix for Bug #551771
+            refDate = refDate.replace(month=m)
+            refDate = refDate.replace(day=d)
+        except:
+            refDate = refDate.replace(day=d)
+            refDate = refDate.replace(month=m)
+    
+    elif len(ref) == 8 and ref.isdigit(): #YYYYMMDD
+        refDate = refDate.replace(year= int(ref[:4]))
+    
+        try: # Fix for Bug #551771
+            refDate = refDate.replace(month= int(ref[4:6]))
+            refDate = refDate.replace(day= int(ref[6:8]))
+        except:
+            refDate = refDate.replace(day= int(ref[6:8]))
+            refDate = refDate.replace(month= int(ref[4:6]))
+    
+    elif ref[:3] in months: #MonthName DayOfMonth
+        refDate = refDate.replace(month= months.index(ref[:3]) + 1)
+        if ref[-2:].isdigit():
+            refDate = refDate.replace(day= int(ref[-2:]))
+        elif ref[-1:].isdigit():
+            refDate = refDate.replace(day= int(ref[-1:]))
+        else:
+            raise Exception, "Day of month required after month name"
+    elif ref[:3] in weekdays: #DayOfWeek (Monday, etc)
+        todayDayName = refDate.strftime("%a").lower()[:3]
+        today = weekdays.index( todayDayName )
+        twoWeeks = weekdays * 2
+        dayOffset = today - twoWeeks.index(ref[:3])
+        if dayOffset < 0: dayOffset += 7
+        refDate -= timedelta(days=dayOffset)
+    elif ref:
+        raise Exception, "Unknown day reference"
+    
+    return refDate
 
 
 def parseTimeOffset(offset):
     if not offset:
-      return timedelta()
-
+        return timedelta()
+    
     t = timedelta()
-
+    
     if offset[0].isdigit():
         sign = 1
     else:
         sign = { '+' : 1, '-' : -1 }[offset[0]]
         offset = offset[1:]
-
+    
     while offset:
         i = 1
         while offset[:i].isdigit() and i <= len(offset): i += 1

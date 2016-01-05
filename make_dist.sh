@@ -1,6 +1,6 @@
 #!/bin/bash
 
-git archive --format=tar \
-    --prefix=calamari-server-1.4.0/ 1.4.0 \
-    | gzip > calamari-server-1.4.0.tar.gz
-/usr/bin/mv calamari-server-1.4.0.tar.gz /root/rpmbuild/SOURCES/
+cd ../
+tar zcf calamari-server-1.4.0.tar.gz calamari-server-1.4.0
+/usr/bin/cp calamari-server-1.4.0.tar.gz /root/rpmbuild/SOURCES/
+cd calamari-server-1.4.0

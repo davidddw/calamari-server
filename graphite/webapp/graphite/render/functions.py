@@ -41,106 +41,106 @@ MINUTE = 60
 
 #Utility functions
 def safeSum(values):
-  safeValues = [v for v in values if v is not None]
-  if safeValues:
-    return sum(safeValues)
+    safeValues = [v for v in values if v is not None]
+    if safeValues:
+        return sum(safeValues)
 
 def safeDiff(values):
-  safeValues = [v for v in values if v is not None]
-  if safeValues:
-    values = map(lambda x: x*-1, safeValues[1:])
-    values.insert(0, safeValues[0])
-    return sum(values)
+    safeValues = [v for v in values if v is not None]
+    if safeValues:
+        values = map(lambda x: x*-1, safeValues[1:])
+        values.insert(0, safeValues[0])
+        return sum(values)
 
 def safeLen(values):
-  return len([v for v in values if v is not None])
+    return len([v for v in values if v is not None])
 
 def safeDiv(a,b):
-  if a is None: return None
-  if b in (0,None): return None
-  return float(a) / float(b)
+    if a is None: return None
+    if b in (0,None): return None
+    return float(a) / float(b)
 
 def safeMul(*factors):
-  if None in factors:
-    return None
+    if None in factors:
+        return None
 
-  factors = map(float, factors)
-  product = reduce(lambda x,y: x*y, factors)
-  return product
+    factors = map(float, factors)
+    product = reduce(lambda x,y: x*y, factors)
+    return product
 
 def safeSubtract(a,b):
     if a is None or b is None: return None
     return float(a) - float(b)
 
 def safeAvg(a):
-  return safeDiv(safeSum(a),safeLen(a))
+    return safeDiv(safeSum(a),safeLen(a))
 
 def safeStdDev(a):
-  sm = safeSum(a)
-  ln = safeLen(a)
-  avg = safeDiv(sm,ln)
-  sum = 0
-  safeValues = [v for v in a if v is not None]
-  for val in safeValues:
-     sum = sum + (val - avg) * (val - avg)
-  return math.sqrt(sum/ln)
+    sm = safeSum(a)
+    ln = safeLen(a)
+    avg = safeDiv(sm,ln)
+    sum = 0
+    safeValues = [v for v in a if v is not None]
+    for val in safeValues:
+        sum = sum + (val - avg) * (val - avg)
+    return math.sqrt(sum/ln)
 
 def safeLast(values):
-  for v in reversed(values):
-    if v is not None: return v
+    for v in reversed(values):
+        if v is not None: return v
 
 def safeMin(values):
-  safeValues = [v for v in values if v is not None]
-  if safeValues:
-    return min(safeValues)
+    safeValues = [v for v in values if v is not None]
+    if safeValues:
+        return min(safeValues)
 
 def safeMax(values):
-  safeValues = [v for v in values if v is not None]
-  if safeValues:
-    return max(safeValues)
+    safeValues = [v for v in values if v is not None]
+    if safeValues:
+        return max(safeValues)
 
 def safeMap(function, values):
-  safeValues = [v for v in values if v is not None]
-  if safeValues:
-    return map(function, values)
+    safeValues = [v for v in values if v is not None]
+    if safeValues:
+        return map(function, values)
 
 def safeAbs(value):
-  if value is None: return None
-  return abs(value)
+    if value is None: return None
+    return abs(value)
 
 def lcm(a,b):
-  if a == b: return a
-  if a < b: (a,b) = (b,a) #ensure a > b
-  for i in xrange(1,a * b):
-    if a % (b * i) == 0 or (b * i) % a == 0: #probably inefficient
-      return max(a,b * i)
-  return a * b
+    if a == b: return a
+    if a < b: (a,b) = (b,a) #ensure a > b
+    for i in xrange(1,a * b):
+        if a % (b * i) == 0 or (b * i) % a == 0: #probably inefficient
+            return max(a,b * i)
+    return a * b
 
 def normalize(seriesLists):
-  if seriesLists:
-    seriesList = reduce(lambda L1,L2: L1+L2,seriesLists)
-    if seriesList:
-      step = reduce(lcm,[s.step for s in seriesList])
-      for s in seriesList:
-        s.consolidate( step / s.step )
-      start = min([s.start for s in seriesList])
-      end = max([s.end for s in seriesList])
-      end -= (end - start) % step
-      return (seriesList,start,end,step)
-  raise NormalizeEmptyResultError()
+    if seriesLists:
+        seriesList = reduce(lambda L1,L2: L1+L2,seriesLists)
+        if seriesList:
+            step = reduce(lcm,[s.step for s in seriesList])
+            for s in seriesList:
+                s.consolidate( step / s.step )
+            start = min([s.start for s in seriesList])
+            end = max([s.end for s in seriesList])
+            end -= (end - start) % step
+            return (seriesList,start,end,step)
+    raise NormalizeEmptyResultError()
 
 class NormalizeEmptyResultError(Exception):
-  """
-  Error thrown by the function 'normalize'
-  when it has an empty result
-  """
-  pass
+    """
+      Error thrown by the function 'normalize'
+      when it has an empty result
+    """
+    pass
 
 def formatPathExpressions(seriesList):
-   # remove duplicates
-   pathExpressions = []
-   [pathExpressions.append(s.pathExpression) for s in seriesList if not pathExpressions.count(s.pathExpression)]
-   return ','.join(pathExpressions)
+    # remove duplicates
+    pathExpressions = []
+    [pathExpressions.append(s.pathExpression) for s in seriesList if not pathExpressions.count(s.pathExpression)]
+    return ','.join(pathExpressions)
 
 # Series Functions
 
@@ -150,97 +150,97 @@ def formatPathExpressions(seriesList):
 #the same interval, despite having possibly different steps...
 
 def sumSeries(requestContext, *seriesLists):
-  """
-  Short form: sum()
-
-  This will add metrics together and return the sum at each datapoint. (See
-  integral for a sum over time)
-
-  Example:
-
-  .. code-block:: none
-
-    &target=sum(company.server.application*.requestsHandled)
-
-  This would show the sum of all requests handled per minute (provided
-  requestsHandled are collected once a minute).   If metrics with different
-  retention rates are combined, the coarsest metric is graphed, and the sum
-  of the other metrics is averaged for the metrics with finer retention rates.
-
-  """
-
-  try:
-    (seriesList,start,end,step) = normalize(seriesLists)
-  except:
-    return []
-  name = "sumSeries(%s)" % formatPathExpressions(seriesList)
-  values = ( safeSum(row) for row in izip(*seriesList) )
-  series = TimeSeries(name,start,end,step,values)
-  series.pathExpression = name
-  return [series]
+    """
+    Short form: sum()
+    
+    This will add metrics together and return the sum at each datapoint. (See
+    integral for a sum over time)
+    
+    Example:
+    
+    .. code-block:: none
+    
+        &target=sum(company.server.application*.requestsHandled)
+    
+    This would show the sum of all requests handled per minute (provided
+    requestsHandled are collected once a minute).   If metrics with different
+    retention rates are combined, the coarsest metric is graphed, and the sum
+    of the other metrics is averaged for the metrics with finer retention rates.
+    
+    """
+    
+    try:
+        (seriesList,start,end,step) = normalize(seriesLists)
+    except:
+        return []
+    name = "sumSeries(%s)" % formatPathExpressions(seriesList)
+    values = ( safeSum(row) for row in izip(*seriesList) )
+    series = TimeSeries(name,start,end,step,values)
+    series.pathExpression = name
+    return [series]
 
 def sumSeriesWithWildcards(requestContext, seriesList, *position): #XXX
-  """
-  Call sumSeries after inserting wildcards at the given position(s).
-
-  Example:
-
-  .. code-block:: none
-
-    &target=sumSeriesWithWildcards(host.cpu-[0-7].cpu-{user,system}.value, 1)
-
-  This would be the equivalent of
-  ``target=sumSeries(host.cpu-[0-7].cpu-user.value)&target=sumSeries(host.cpu-[0-7].cpu-system.value)``
-
-  """
-  if type(position) is int:
-    positions = [position]
-  else:
-    positions = position
-
-  newSeries = {}
-  newNames = list()
-
-  for series in seriesList:
-    newname = '.'.join(map(lambda x: x[1], filter(lambda i: i[0] not in positions, enumerate(series.name.split('.')))))
-    if newname in newSeries.keys():
-      newSeries[newname] = sumSeries(requestContext, (series, newSeries[newname]))[0]
+    """
+    Call sumSeries after inserting wildcards at the given position(s).
+    
+    Example:
+    
+    .. code-block:: none
+    
+        &target=sumSeriesWithWildcards(host.cpu-[0-7].cpu-{user,system}.value, 1)
+    
+    This would be the equivalent of
+      ``target=sumSeries(host.cpu-[0-7].cpu-user.value)&target=sumSeries(host.cpu-[0-7].cpu-system.value)``
+    
+    """
+    if type(position) is int:
+        positions = [position]
     else:
-      newSeries[newname] = series
-      newNames.append(newname)
-    newSeries[newname].name = newname
-
-  return [newSeries[name] for name in newNames]
+        positions = position
+    
+    newSeries = {}
+    newNames = list()
+    
+    for series in seriesList:
+        newname = '.'.join(map(lambda x: x[1], filter(lambda i: i[0] not in positions, enumerate(series.name.split('.')))))
+        if newname in newSeries.keys():
+            newSeries[newname] = sumSeries(requestContext, (series, newSeries[newname]))[0]
+        else:
+            newSeries[newname] = series
+            newNames.append(newname)
+        newSeries[newname].name = newname
+    
+    return [newSeries[name] for name in newNames]
 
 def averageSeriesWithWildcards(requestContext, seriesList, *position): #XXX
-  """
-  Call averageSeries after inserting wildcards at the given position(s).
-
-  Example:
-
-  .. code-block:: none
-
-    &target=averageSeriesWithWildcards(host.cpu-[0-7].cpu-{user,system}.value, 1)
-
-  This would be the equivalent of
-  ``target=averageSeries(host.*.cpu-user.value)&target=averageSeries(host.*.cpu-system.value)``
-
-  """
-  if type(position) is int:
-    positions = [position]
-  else:
-    positions = position
-  result = []
-  matchedList = {}
-  for series in seriesList:
-    newname = '.'.join(map(lambda x: x[1], filter(lambda i: i[0] not in positions, enumerate(series.name.split('.')))))
-    if not matchedList.has_key(newname):
-      matchedList[newname] = []
-    matchedList[newname].append(series)
-  for name in matchedList.keys():
-    result.append( averageSeries(requestContext, (matchedList[name]))[0] )
-    result[-1].name = name
-  return result
+    """
+    Call averageSeries after inserting wildcards at the given position(s).
+    
+    Example:
+    
+    .. code-block:: none
+    
+        &target=averageSeriesWithWildcards(host.cpu-[0-7].cpu-{user,system}.value, 1)
+    
+    This would be the equivalent of
+      ``target=averageSeries(host.*.cpu-user.value)&target=averageSeries(host.*.cpu-system.value)``
+    
+    """
+    if type(position) is int:
+        positions = [position]
+    else:
+        positions = position
+    result = []
+    matchedList = {}
+    for series in seriesList:
+        newname = '.'.join(map(lambda x: x[1], filter(lambda i: i[0] not in positions, enumerate(series.name.split('.')))))
+        if not matchedList.has_key(newname):
+            matchedList[newname] = []
+        matchedList[newname].append(series)
+    for name in matchedList.keys():
+        result.append( averageSeries(requestContext, (matchedList[name]))[0] )
+        result[-1].name = name
+    return result
 
 def diffSeries(requestContext, *seriesLists):
   """
@@ -1522,21 +1522,21 @@ def averageAbove(requestContext, seriesList, n):
   return [ series for series in seriesList if safeDiv(safeSum(series),safeLen(series)) >= n ]
 
 def averageBelow(requestContext, seriesList, n):
-  """
-  Takes one metric or a wildcard seriesList followed by an integer N.
-  Out of all metrics passed, draws only the metrics with an average value
-  below N for the time period specified.
-
-  Example:
-
-  .. code-block:: none
-
-    &target=averageBelow(server*.instance*.threads.busy,25)
-
-  Draws the servers with average values below 25.
-
-  """
-  return [ series for series in seriesList if safeDiv(safeSum(series),safeLen(series)) <= n ]
+    """
+    Takes one metric or a wildcard seriesList followed by an integer N.
+    Out of all metrics passed, draws only the metrics with an average value
+    below N for the time period specified.
+    
+    Example:
+    
+      .. code-block:: none
+    
+        &target=averageBelow(server*.instance*.threads.busy,25)
+    
+    Draws the servers with average values below 25.
+    
+    """
+    return [ series for series in seriesList if safeDiv(safeSum(series),safeLen(series)) <= n ]
 
 def _getPercentile(points, n, interpolate=False):
   """
@@ -1855,13 +1855,13 @@ def stdev(requestContext, seriesList, points, windowTolerance=0.1):
   return seriesList
 
 def secondYAxis(requestContext, seriesList):
-  """
-  Graph the series on the secondary Y axis.
-  """
-  for series in seriesList:
-    series.options['secondYAxis'] = True
-    series.name= 'secondYAxis(%s)' % series.name
-  return seriesList
+    """
+    Graph the series on the secondary Y axis.
+    """
+    for series in seriesList:
+        series.options['secondYAxis'] = True
+        series.name= 'secondYAxis(%s)' % series.name
+    return seriesList
 
 def _fetchWithBootstrap(requestContext, seriesList, **delta_kwargs):
   'Request the same data but with a bootstrap period at the beginning'
@@ -1898,14 +1898,14 @@ def _fetchWithBootstrap(requestContext, seriesList, **delta_kwargs):
   return newSeriesList
 
 def _trimBootstrap(bootstrap, original):
-  'Trim the bootstrap period off the front of this series so it matches the original'
-  original_len = len(original)
-  bootstrap_len = len(bootstrap)
-  length_limit = (original_len * original.step) / bootstrap.step
-  trim_start = bootstrap.end - (length_limit * bootstrap.step)
-  trimmed = TimeSeries(bootstrap.name, trim_start, bootstrap.end, bootstrap.step,
-        bootstrap[-length_limit:])
-  return trimmed
+    'Trim the bootstrap period off the front of this series so it matches the original'
+    original_len = len(original)
+    bootstrap_len = len(bootstrap)
+    length_limit = (original_len * original.step) / bootstrap.step
+    trim_start = bootstrap.end - (length_limit * bootstrap.step)
+    trimmed = TimeSeries(bootstrap.name, trim_start, bootstrap.end, bootstrap.step,
+            bootstrap[-length_limit:])
+    return trimmed
 
 def holtWintersIntercept(alpha,actual,last_season,last_intercept,last_slope):
   return alpha * (actual - last_season) \
