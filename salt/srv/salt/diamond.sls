@@ -34,6 +34,14 @@ diamond-network-config:
     - source: salt://base/NetworkCollector.conf
     - require:
         - pkg: diamond
+        
+diamond-ceph-patch:
+  file:
+    - managed
+    - name: /usr/share/diamond/collectors/ceph/ceph.py
+    - source: salt://base/ceph.py
+    - require:
+        - pkg: diamond
 
 {% if grains['os'] == 'RedHat' and grains['osrelease'].startswith('7') %}
 # work around https://github.com/saltstack/salt/pull/12316

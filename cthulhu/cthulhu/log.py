@@ -1,4 +1,7 @@
 import logging
+import pwd
+import os
+import grp
 
 from calamari_common.config import CalamariConfig
 config = CalamariConfig()
@@ -10,3 +13,6 @@ handler = logging.FileHandler(config.get('cthulhu', 'log_path'))
 handler.setFormatter(logging.Formatter(FORMAT))
 log.addHandler(handler)
 log.setLevel(logging.getLevelName(config.get('cthulhu', 'log_level')))
+uid = pwd.getpwnam("apache").pw_uid
+gid = grp.getgrnam("apache").gr_gid
+os.chown(config.get('cthulhu', 'log_path'), uid, gid)
