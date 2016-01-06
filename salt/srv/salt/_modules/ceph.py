@@ -616,7 +616,7 @@ def selftest_exception():
     raise RuntimeError("This is a self-test exception")
 
 
-def _heartbeat():
+def heartbeat():
     """
     Send an event to the master with the terse status
     """
@@ -628,15 +628,3 @@ def _heartbeat():
 
     # Return the emitted data because it's useful if debugging with salt-call
     return service_heartbeat, cluster_heartbeat
-
-
-def heartbeat():
-    try:
-        _heartbeat()
-    except:
-        # Swallow exceptions to work around saltstack issue #11919 in
-        # salt 2014.1.1.  If we emitted exceptions then it could cause
-        # our scheduled task to stop execution.  Remove this behaviour
-        # once the issue is fixed upstream and we are using a more
-        # recent salt in calamari.
-        pass
