@@ -1,4 +1,3 @@
-
 from glob import glob
 import hashlib
 import os
@@ -11,15 +10,15 @@ import struct
 import msgpack
 import json
 
-# Note: do not import ceph modules at this scope, otherwise this module won't be able
-# to cleanly talk to us about systems where ceph isn't installed yet.
+# Note: do not import ceph modules at this scope, otherwise this module won't
+# be able to cleanly talk to us about systems where ceph isn't installed yet.
 
 # We apply a timeout to librados communications, because otherwise a stuck mon
 # would block our emission of heartbeat events
 RADOS_TIMEOUT = 20
 
-# FIXME: We probably can't assume that <clustername>.client.admin.keyring is always
-# present, although this is the case on a nicely ceph-deploy'd system
+# FIXME: We probably can't assume that <clustername>.client.admin.keyring is
+# always present, although this is the case on a nicely ceph-deploy'd system
 RADOS_NAME = 'client.admin'
 
 
@@ -84,7 +83,8 @@ def rados_command(cluster_handle, prefix, args=None, decode=True):
                 try:
                     return json.loads(outbuf)
                 except (ValueError, TypeError):
-                    raise RadosError("Invalid JSON output for command {0}".format(argdict))
+                    raise RadosError("Invalid JSON output for command {0}".
+                                     format(argdict))
             else:
                 return None
         else:
@@ -436,7 +436,8 @@ def get_heartbeats():
 
     If a mon is running here, do some extra work:
 
-    - Report the mapping of cluster name to FSID from /etc/ceph/<cluster name>.conf
+    - Report the mapping of cluster name to FSID from 
+        /etc/ceph/<cluster name>.conf
     - For all clusters, report the latest versions of all cluster maps.
 
     :return A 2-tuple of dicts for services, clusters

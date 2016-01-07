@@ -10,7 +10,8 @@ BASE = "/var/log"
 def _resolve(base, subpath):
     path = os.path.normpath(os.path.realpath(os.path.join(base, subpath)))
     if not path.startswith(base):
-        raise ValueError("Forbidden to us subpath with ../ or symlinks outside base")
+        raise ValueError("Forbidden to us subpath with ../ or symlinks "
+                         "outside base")
     else:
         return path
 
@@ -74,6 +75,7 @@ def tail(subpath, n_lines):
     # experience an error
     n_lines = int(n_lines)
 
-    p = subprocess.Popen(["tail", "-n", str(n_lines), path], stdout=subprocess.PIPE)
-    stdout, stderr = p.communicate()
+    p = subprocess.Popen(["tail", "-n", str(n_lines), path],
+                         stdout=subprocess.PIPE)
+    stdout, _ = p.communicate()
     return stdout
