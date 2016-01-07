@@ -3,7 +3,6 @@
 
 %global version   1.4.0
 %global revision  1
-%global FLAVOR    rhel7
 %global src_name  calamari
 
 
@@ -91,8 +90,13 @@ cd ../
 %{__install} -d ${RPM_BUILD_ROOT}/var/lib/cthulhu
 
 %{__install} -d ${RPM_BUILD_ROOT}/etc/calamari
-%{__install} -D -m 0644 conf/calamari/%{FLAVOR}/calamari.conf \
+%if 0%{?rhel} && 0%{?rhel} >= 7
+%{__install} -D -m 0644 conf/calamari/rhel7/calamari.conf \
     ${RPM_BUILD_ROOT}/etc/calamari/calamari.conf
+%else
+%{__install} -D -m 0644 conf/calamari/el6/calamari.conf \
+    ${RPM_BUILD_ROOT}/etc/calamari/calamari.conf
+%endif
 sed -i 's#/opt/calamari/venv#/usr/share/graphite#g' \
     ${RPM_BUILD_ROOT}/etc/calamari/calamari.conf
 %{__install} -D -m 0644 conf/alembic.ini \
@@ -163,13 +167,18 @@ if [[ -f "/etc/httpd/conf.d/welcome.conf" ]]; then
 fi
 chown -R apache:apache /var/log/calamari
 chown -R apache:apache /var/lib/graphite
-
 exit 0
 
 %preun -n calamari-server
+%if 0%{?rhel} && 0%{?rhel} >= 7
 systemctl stop httpd
 systemctl stop supervisord
 systemctl stop salt-master
+%else
+service httpd stop
+service supervisord stop
+service salt-master stop
+%endif
 exit 0
 
 %postun -n calamari-server
