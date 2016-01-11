@@ -29,6 +29,9 @@ Requires:       postgresql postgresql-libs postgresql-server
 Requires:       dejavu-sans-fonts dejavu-serif-fonts django-tagging
 Requires:       mod_wsgi pycairo pyparsing python-simplejson pytz
 Requires:       graphite python-carbon python-whisper
+%if 0%{?rhel} && 0%{?rhel} < 7
+Requires:       python-importlib
+%endif
 Source0:        %{name}-%{version}.tar.gz
 BuildArch:      noarch
 
