@@ -98,6 +98,7 @@ def get_latest_graphite(metric):
 
 
 class Space(RPCViewSet):
+    permission_classes = (AllowAny,)
     serializer_class = ClusterSpaceSerializer
 
     def get(self, request, fsid):
@@ -138,6 +139,7 @@ class Space(RPCViewSet):
 
 
 class Health(RPCViewSet):
+    permission_classes = (AllowAny,)
     serializer_class = ClusterHealthSerializer
 
     def get(self, request, fsid):
@@ -150,6 +152,7 @@ class Health(RPCViewSet):
 
 
 class HealthCounters(RPCViewSet):
+    permission_classes = (AllowAny,)
     serializer_class = ClusterHealthCountersSerializer
 
     PG_FIELDS = ['pgid', 'acting', 'up', 'state']
@@ -325,6 +328,7 @@ class OSDList(RPCViewSet):
     Provides an object which includes a list of all OSDs, and
     some summary counters (pg_state_counts)
     """
+    permission_classes = (AllowAny,)
     serializer_class = OSDListSerializer
 
     OSD_FIELDS = ['uuid', 'up', 'in', 'up_from', 'public_addr',
@@ -437,6 +441,7 @@ class OSDDetail(RPCViewSet):
     This is the same data that is provided in the OSD list, but for
     a single OSD, and not including the pg_state_counts.
     """
+    permission_classes = (AllowAny,)
     serializer_class = OSDDetailSerializer
 
     def get(self, request, fsid, osd_id):
@@ -456,6 +461,7 @@ class UserViewSet(viewsets.ModelViewSet, RoleLimitedViewSet):
     the user being modified must be the user associated with the current login session).
     """
     queryset = User.objects.all()
+    permission_classes = (AllowAny,)
     serializer_class = UserSerializer
 
     def _get_user(self, request, user_id):
@@ -599,6 +605,7 @@ Provides metadata about the installation of Calamari server in use
 
 
 class ClusterViewSet(RPCViewSet):
+    permission_classes = (AllowAny,)
     serializer_class = ClusterSerializer
 
     def list(self, request):
@@ -616,6 +623,7 @@ class ClusterViewSet(RPCViewSet):
 
 
 class ServerViewSet(RPCViewSet):
+    permission_classes = (AllowAny,)
     serializer_class = ServerSerializer
 
     def retrieve(self, request, pk):
@@ -629,6 +637,7 @@ class ServerViewSet(RPCViewSet):
 
 
 class PoolViewSet(RPCViewSet):
+    permission_classes = (AllowAny,)
     serializer_class = PoolSerializer
 
     def pool_object(self, pool_data, cluster):

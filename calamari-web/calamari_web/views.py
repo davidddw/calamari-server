@@ -30,7 +30,7 @@ def serve_dir_or_index(request, path, document_root):
             status=404)
 
 
-@login_required
+#@login_required
 def dashboard(request, path, document_root):
     client = zerorpc.Client()
     client.connect(config.get('cthulhu', 'rpc_url'))
